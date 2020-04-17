@@ -40,8 +40,9 @@ class pSZ():
 		self.bkd = camb.get_background(self.pars)
 		self.eta_star = self.bkd.conformal_time(1089) # conformal time at recombination
 
-		cmb = results.get_cmb_power_spectra(self.pars,lmax=10, raw_cl=True)
-		self.cltt = np.copy(cmb['lensed_scalar'][:,0])
+		cmb = results.get_cmb_power_spectra(self.pars,lmax=1000, raw_cl=True)
+		self.TCMBmuK = 2.726e6
+		self.cltt = np.copy(cmb['lensed_scalar'][:,0])*self.TCMBmuK**2 # muK^2
 		
 		self.zmin = 0
 		self.zmax = 8
@@ -120,29 +121,31 @@ class pSZ():
 	
 	def xi(self, z, zp, ell=2, kmin=1e-5, kmax=1e-1, epsabs=0., epsrel=1e-2, limit=50):
 		"""
-		The power spectrum of the polarization field generated in two redshift slices z and zp.
+		The power spectrum of the polarization field generated in two redshift slices z and zp. 
+		Units are muK^2
 		See eq 3 from Louis+17
 		"""
-		return integrate.quad(self.integrand_xi, kmin, kmax, args=(self.bkd.comoving_radial_distance(z),self.bkd.comoving_radial_distance(z),ell), epsabs=epsabs, epsrel=epsrel, limit=limit)[0] 
+		return self.TCMBmuK**2 * integrate.quad(self.integrand_xi, kmin, kmax, args=(self.bkd.comoving_radial_distance(z),self.bkd.comoving_radial_distance(zp),ell), epsabs=epsabs, epsrel=epsrel, limit=limit)[0] 
 	
 	def zeta(self, z, ell=2, kmin=1e-5, kmax=1e-1, epsabs=0., epsrel=1e-2, limit=50):
 		"""
 		The cross-power spectrum between the polarization field at redshift slice z and the CMB temperature.
+		Units are muK^2
 		See eq 4 from Louis+17
 		"""
-		return integrate.quad(self.integrand_zeta, kmin, kmax, args=(self.bkd.comoving_radial_distance(z),ell), epsabs=epsabs, epsrel=epsrel, limit=limit)[0] 
+		return self.TCMBmuK**2 * integrate.quad(self.integrand_zeta, kmin, kmax, args=(self.bkd.comoving_radial_distance(z),ell), epsabs=epsabs, epsrel=epsrel, limit=limit)[0] 
 	
 	def R(self, z, ell=2, kmin=1e-5, kmax=1e-1, epsabs=0., epsrel=1e-2, limit=50):
 		"""
 		Correlation coefficient between the polarization field at redshift slice r and the CMB temperature.
 		"""
-		xi_ = self.xi(z, z, ell=ell, kmin=kmin, kmax=kmax, epsabs=epsabs, epsrel=epsrel, limit=limit)
+		xi_ = self.xi(z, z, ell=ell, kmin=kmin, kmax=kmax, epsabs=epsabs, epsrel=epsrel, limit=limit) 
 		zeta_ = self.zeta(z, ell=ell, kmin=kmin, kmax=kmax, epsabs=epsabs, epsrel=epsrel, limit=limit)
 		return np.abs(zeta_)/np.sqrt(xi_*self.cltt[ell])
 
 	def load_smica(self):
 		self.smica = hp.read_map(self.smica_path)
-		self.alms_smica = hp.map2alm(self.smica)
+		self.alms_smica = hp.map2alm(self.smica*1e6)  # muK
 		self.lmax_smica = hp.Alm.getlmax(self.alms_smica.size)
 		self.smica_init = True
 
@@ -154,10 +157,30 @@ class pSZ():
 		"""
 		if not self.smica_init: self.load_smica()
 		ells = np.arange(2,lmax+1)
-		zeta_tmp = np.asarray([self.zeta(z, ell) for ell in ells])
+		zeta_tmp = np.asarray([self.zeta(z, ell) for ell in ells]) # muK^2
 		plm_tmp = np.zeros(self.lmax_smica+1)
-		plm_tmp[2:lmax+1] = zeta_tmp/self.cltt[2:lmax+1]
-		I_tmp, Q_tmp, U_tmp = hp.alm2map([np.zeros_like(self.alms_smica),hp.almxfl(self.alms_smica,plm_tmp),np.zeros_like(self.alms_smica)], nside)
+		plm_tmp[2:lmax+1] = zeta_tmp/self.cltt[2:lmax+1] # unitless
+		I_tmp, Q_tmp, U_tmp = hp.alm2map([np.zeros_like(self.alms_smica),hp.almxfl(self.alms_smica,plm_tmp),np.zeros_like(self.alms_smica)], nside) # muK
+		if plot: hp.mollview(np.sqrt(Q_tmp**2+U_tmp**2), cmap=cmap, coord=coord, title='z = %f'%z )
+
+		if return_QU:
+			return np.sqrt(Q_tmp**2+U_tmp**2), Q_tmp, U_tmp
+		else:
+			return np.sqrt(Q_tmp**2+U_tmp**2)
+
+	def uncorrelated_quadrupole(self, z, lmax=5, nside=512, cmap='jet', coord=['G','C'], plot=False, return_QU=False):
+		"""
+		Returns Healpix maps of the polarization at redshift z uncorrelated with the CMB local measurement.
+		We assume that the sum converges after ell = 5.
+		Note that we also assume that B-modes of the polarization field to be zero.
+		"""
+		if not self.smica_init: self.load_smica()
+		ells = np.arange(2,lmax+1)
+		zeta_tmp = np.asarray([self.zeta(z, ell) for ell in ells]) # muK^2
+		xi_tmp = np.asarray([self.xi(z, z, ell) for ell in ells]) # muK^2
+		pl_tmp = np.zeros((self.lmax_smica+1,6)) 
+		pl_tmp[2:lmax+1,3] = xi_tmp - zeta_tmp**2/self.cltt[2:lmax+1] # muK^2
+		I_tmp, Q_tmp, U_tmp = hp.synfast(pl_tmp.T, nside)
 		if plot: hp.mollview(np.sqrt(Q_tmp**2+U_tmp**2), cmap=cmap, coord=coord, title='z = %f'%z )
 
 		if return_QU:
