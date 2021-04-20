@@ -57,6 +57,13 @@ def cNFW(bkd, theta, z, M=1e14, c500=1.177, fb=0.16, fH=0.76, mass_def=500):
 def cNFW_grid(bkd, z, M=1e14, c500=1.177, reso=0.2, theta_max=10,fb=0.16, fH=0.76, mass_def=500):
     theta_x,theta_y = np.meshgrid(np.arange(-theta_max,theta_max+reso,reso), np.arange(-theta_max,theta_max+reso,reso))
     theta   = np.sqrt(theta_x**2+theta_y**2) # arcmin
+
+    # N = int(2*theta_max/reso)
+    # ones = np.ones(N)
+    # inds  = (np.arange(N) + .5 - N/2.)
+    # ## angles relative to 1 degrees
+    # theta = np.outer(ones, inds) * reso # arcmin
+
     d_A     = bkd.angular_diameter_distance(z) # [Mpc]
     rho_c_z = 3.*(bkd.hubble_parameter(z)*km2Mpc)**2/(8.*np.pi*G)# [kg/m^3]
     r500    = (((M*Msun2kg/(500*4.*np.pi/3.))/rho_c_z)**(1./3.))*m2Mpc # [Mpc]

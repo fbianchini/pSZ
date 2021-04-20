@@ -125,7 +125,9 @@ class pSZ():
 		Units are muK^2
 		See eq 3 from Louis+17
 		"""
-		return self.TCMBmuK**2 * integrate.quad(self.integrand_xi, kmin, kmax, args=(self.bkd.comoving_radial_distance(z),self.bkd.comoving_radial_distance(zp),ell), epsabs=epsabs, epsrel=epsrel, limit=limit)[0] 
+		r  = self.bkd.comoving_radial_distance(z)
+		rp = self.bkd.comoving_radial_distance(zp)
+		return self.TCMBmuK**2 * integrate.quad(self.integrand_xi, kmin, kmax, args=(r,rp,ell), epsabs=epsabs, epsrel=epsrel, limit=limit)[0] 
 	
 	def zeta(self, z, ell=2, kmin=1e-5, kmax=1e-1, epsabs=0., epsrel=1e-2, limit=50):
 		"""
@@ -133,7 +135,8 @@ class pSZ():
 		Units are muK^2
 		See eq 4 from Louis+17
 		"""
-		return self.TCMBmuK**2 * integrate.quad(self.integrand_zeta, kmin, kmax, args=(self.bkd.comoving_radial_distance(z),ell), epsabs=epsabs, epsrel=epsrel, limit=limit)[0] 
+		r  = self.bkd.comoving_radial_distance(z)
+		return self.TCMBmuK**2 * integrate.quad(self.integrand_zeta, kmin, kmax, args=(r,ell), epsabs=epsabs, epsrel=epsrel, limit=limit)[0] 
 	
 	def R(self, z, ell=2, kmin=1e-5, kmax=1e-1, epsabs=0., epsrel=1e-2, limit=50):
 		"""
@@ -153,7 +156,7 @@ class pSZ():
 		"""
 		Returns Healpix maps of the remote quadrupole at redshift z correlated with the CMB local measurement.
 		We assume that the sum converges after ell = 5.
-		Note that we also assume that B-modes of the polarization field to be zero.
+		Note that we also assume B-modes of the polarization field to be zero.
 		"""
 		if not self.smica_init: self.load_smica()
 		ells = np.arange(2,lmax+1)
