@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools>=42", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pSZ"
+version = "0.1.0"
+description = "A Python package to calculate quantities related to the polarized Sunyaev-Zel'dovich effect."
+requires-python = ">=3.8"
+license = {text = "MIT"}
+
+authors = [
+    {name = "Federico Bianchini", email = "federico.bianxini@gmail.com"},
+]
+
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Astronomy",
+]
+
+dependencies = [
+    "numpy",
+    "scipy",
+    "matplotlib",
+    "camb",
+    "healpy",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["pSZ"] 
+exclude = ["data", "plots", "notebooks"]
+
+[project.urls]
+Source = "https://github.com/fbianchini/pSZ"
